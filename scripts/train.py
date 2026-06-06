@@ -16,7 +16,6 @@ Functions:
 
 import pandas as pd
 import numpy as np
-import matplotlib as plt
 import logging, time, os
 import torch
 import torch.nn as nn
@@ -29,82 +28,18 @@ import torch.optim.lr_scheduler
 from sklearn.pipeline import Pipeline
 from collections import Counter
 import json
-import torch.nn as nn
-from protein_struct_preprocess import preprocess_proteins
-from protein_struct_model_prep import proteinDataset, pad_mask
 from sklearn.metrics import f1_score, precision_recall_curve, accuracy_score, roc_auc_score, confusion_matrix, classification_report
+
+from protein_model.architecture import lstm_model
+from protein_model.preprocess_training import preprocess_proteins
+from protein_model.data_utils import proteinDataset, pad_mask
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
 logger = logging.getLogger(__name__)
 
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 logger.info(f"Using Apple {device}")
-
-
-class lstm_model(nn.Module):
-    """
-    Bidirectional LSTM model for protein secondary structure prediction.
-    
-    This model processes amino acid sequences through an embedding layer, followed by
-    a bidirectional LSTM, layer normalization, dropout, and a final linear layer
-    to predict secondary structure labels for each amino acid position.
-    
-    Attributes:
-        pad_id (int): Padding token index
-        embed (nn.Embedding): Embedding layer for amino acid sequences
-        lstm (nn.LSTM): Bidirectional LSTM layer
-        norm (nn.LayerNorm): Layer normalization
-        dropout (nn.Dropout): Dropout layer for regularization
-        final_layer (nn.Linear): Final linear layer for classification
-    """
-    
-    def __init__(self, vocab_size, num_tags, pad_id, hidden=64, embed_dim=64, bidir=False):
-        """
-        Initialize the LSTM model.
-        
-        Args:
-            vocab_size (dict): Vocabulary dictionary for amino acids
-            num_tags (int): Number of output classes (secondary structure types)
-            pad_id (int): Padding token index
-            hidden (int, optional): Hidden dimension of LSTM. Defaults to 64.
-            embed_dim (int, optional): Embedding dimension. Defaults to 64.
-            bidir (bool, optional): Whether to use bidirectional LSTM. Defaults to False.
-        """
-        super().__init__()
-        
-        self.pad_id = pad_id
-        self.embed = nn.Embedding(num_embeddings=len(vocab_size), embedding_dim=embed_dim, padding_idx=pad_id)
-        
-        # Two-layer LSTM with bidirectional processing
-        # Bidirectional LSTM processes the sequence forwards and backwards and concatenates the outputs
-        self.lstm = nn.LSTM(input_size=embed_dim, hidden_size=hidden, num_layers=2, batch_first=True, bidirectional=bidir) 
-
-        # Output dimension doubles if bidirectional is True
-        out_dim = hidden * (2 if bidir else 1)
-        self.norm = nn.LayerNorm(out_dim)
-        self.dropout = nn.Dropout(p=0.2)  # Optional, but can help with stability
-
-        # Final linear layer maps to output classes
-        self.final_layer = nn.Linear(out_dim, num_tags)
-
-    def forward(self, x):
-        """
-        Forward pass through the model.
-        
-        Args:
-            x (torch.Tensor): Input tensor of shape [batch_size, seq_len]
-            
-        Returns:
-            torch.Tensor: Output logits of shape [batch_size, seq_len, num_classes]
-        """
-        # Input: [B, T] where B = batch size, T = sequence length (tokens)
-        e = self.embed(x)  # Embedding layer: [B, T, E] where E = embedding dimension
-        h, _ = self.lstm(e)  # LSTM layer: [B, T, H * (1 | 2)] where H = hidden dimension
-        h = self.norm(h)  # Layer normalization across dimensions
-        h = self.dropout(h)
-        logits = self.final_layer(h)  # Final layer: [B, T, C] where C = number of classes
-
-        return logits
 
 
 def protein_train(lab3, model, train_loader, val_loader, n_factors=30, n_epochs=20, batch_size=64, label_mode='q3', device="mps"):
@@ -351,7 +286,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False, collate_fn=collate, num_workers=0)
     
     # Initialize model with specified architecture
-    base_model = lstm_model(vocab_size=t_prime2idx, 
+    base_model = lstm_model(vocab_size=len(t_prime2idx), 
                             num_tags=len(t_lab8),  # Number of output classes
                             pad_id=t_prime2idx["<PAD>"],
                             hidden=20,  # Hidden dimension
@@ -361,13 +296,13 @@ def main():
     base_model = base_model.to(device)
 
     # Model training (commented out to use pre-trained model)
-    # model_train, best_model_state = protein_train(t_lab8, base_model, train_loader, val_loader, 
-    #                                              n_factors=30, n_epochs=20, batch_size=512, 
-    #                                              label_mode='q8', device="mps")
+    model_train, best_model_state = protein_train(t_lab8, base_model, train_loader, val_loader, 
+                                                  n_factors=30, n_epochs=20, batch_size=512, 
+                                                  label_mode='q8', device="mps")
 
     # Load pre-trained model
-    # For Q3:
-    # best_state = torch.load("best_model_state_for_label3.pth", map_location=device)
+    # For Q3/Q8:
+    # best_state = torch.load("best_model_state_for_label.pth", map_location=device)
     
     # For Q8:
     best_state = torch.load("best_model_state_for_label8.pth", map_location=device)
@@ -376,7 +311,7 @@ def main():
     base_model.to(device)
 
     # Evaluate model on test data
-    evaluate(lab3=t_lab8, test_loader=test_loader, model=base_model, batch_size=512, device="mps")
+    #evaluate(lab3=t_lab8, test_loader=test_loader, model=base_model, batch_size=512, device="mps")
 
 
 if __name__=="__main__":

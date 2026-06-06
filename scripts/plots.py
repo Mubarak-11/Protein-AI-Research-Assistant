@@ -20,9 +20,9 @@ import seaborn as sns
 import torch
 from torch.utils.data import DataLoader
 import logging
-from protein_struct_preprocess import preprocess_proteins
-from protein_struct_model_prep import proteinDataset, pad_mask
-from protein_struct_model import lstm_model
+from protein_model.preprocess_training import preprocess_proteins
+from protein_model.data_utils import proteinDataset, pad_mask
+from protein_model.architecture import lstm_model
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
 logger = logging.getLogger(__name__)
@@ -289,7 +289,7 @@ def evaluate_with_visualizations(model_path, test_data_path, prime2idx, lab3, de
                       pad_id=prime2idx["<PAD>"],
                       hidden=20,
                       embed_dim=20,
-                      bidir=True)
+                      bidir=False)
     
     # Load the saved state
     best_state = torch.load(model_path, map_location=device)
