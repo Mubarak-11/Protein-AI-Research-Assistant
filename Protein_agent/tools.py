@@ -153,3 +153,5 @@ def batch_predict_q8(seqs: list[str]) -> dict:
     
     except Exception as e:
         raise ValueError(f"Q8 Batch Prediction failed {e}")
+    
+

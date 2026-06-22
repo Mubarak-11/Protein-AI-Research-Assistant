@@ -3,6 +3,7 @@ from google.adk.agents import Agent
 from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from mcp.client.stdio import StdioServerParameters
 from .tools import predict_q3, predict_q8, batch_predict_q3, batch_predict_q8
+from .uniprot_tools import search_uniprot, get_uniprot_entry
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 instruction_file_path = os.path.join(script_dir, "agent-prompt.md")
@@ -24,6 +25,7 @@ root_agent = Agent(
     name = "ProteinResearchAgent",
     description = "Protein Research Assistant that helps with Protein secondary structure from Amino Acids",
     instruction = instruction,
-    model = "gemini-3.1-pro-preview",
-    tools= [predict_q3, predict_q8, batch_predict_q3, batch_predict_q8, bq_toolset],
+#    model = "gemini-3.1-pro-preview",
+    model = "gemini-2.5-flash",
+    tools= [predict_q3, predict_q8, batch_predict_q3, batch_predict_q8, search_uniprot, get_uniprot_entry, bq_toolset],
 )
