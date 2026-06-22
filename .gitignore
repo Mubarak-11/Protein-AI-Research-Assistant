@@ -50,3 +50,9 @@ Thumbs.db
 *.png
 *.jpg
 *.pdf
+
+# Environment files
+.env
+
+# ADK session database
+.adk/

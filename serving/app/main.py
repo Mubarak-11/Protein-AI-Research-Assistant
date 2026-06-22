@@ -21,17 +21,21 @@ MODEL_PATH8 = os.getenv("MODEL_PATH8", str(CURDIR.parent / "artifacts" / "best_m
 #app setup
 app = FastAPI(title= "Protein Secondary Strucuture Predicator", version = "1.0")
 
-#load models
-model_q3 = load_q3_model_weights(str(MODEL_PATH3))
-model_q8 = load_q8_model_weights(str(MODEL_PATH8))
 
 @app.on_event("startup")
 def _startup():
 
     logger.info("Loading Models...")
 
-    #load the model and kick off warmup
+    #lazy load the model and kick off warmup
     try:
+
+        model_q3 = load_q3_model_weights(str(MODEL_PATH3))
+        model_q8 = load_q8_model_weights(str(MODEL_PATH8))
+        
+        app.state.model_q3 = model_q3
+        app.state.model_q8 = model_q8
+
         warmup(model = model_q3, n_features = 20)
         warmup(model = model_q8, n_features = 20)
 
@@ -46,8 +50,8 @@ def _startup():
 @app.get("/health")
 def health():
     
-    q3_ok = model_q3 is not None
-    q8_ok = model_q8 is not None
+    q3_ok = app.state.model_q3 is not None
+    q8_ok = app.state.model_q8 is not None
 
     return {
         "status": "healthy" if q3_ok or q8_ok else "degraded",
@@ -64,7 +68,7 @@ def predict_q3_endpoint(req: PredictRequest):
         tensor = encode_sequence(req.sequence, max_len = 512)
 
         #tensor -> predict -> (label_ids, confidence)
-        pred_ids, confidence = predict(model_q3, tensor)
+        pred_ids, confidence = predict(app.state.model_q3, tensor)
 
         #decode labels, label_ids -> List of "H/E/C"
         labels = decode_labels_q3(pred_ids)
@@ -91,7 +95,7 @@ def predict_q8_endpoint(req: PredictRequest):
         tensor = encode_sequence(req.sequence, max_len = 512)
 
         #tensor -> predict -> (label_ids, confidence)
-        pred_ids, confidence = predict(model_q8, tensor)
+        pred_ids, confidence = predict(app.state.model_q8, tensor)
 
         #decode labels, label_ids -> List of "H/E/C"
         labels = decode_labels_q8(pred_ids)
@@ -121,7 +125,7 @@ def predict_batch_q3(req: BatchPredictRequest):
             tensor = encode_sequence(seq, max_len = 512)
 
             #tensor -> predict -> (label_ids, confidence)
-            pred_ids, confidence = predict(model_q3, tensor)
+            pred_ids, confidence = predict(app.state.model_q3, tensor)
 
             #decode labels, label_ids -> List of "H/E/C"
             labels = decode_labels_q3(pred_ids)
@@ -149,7 +153,7 @@ def predict_batch_q8(req: BatchPredictRequest):
             tensor = encode_sequence(seq, max_len = 512)
 
             #tensor -> predict -> (label_ids, confidence)
-            pred_ids, confidence = predict(model_q8, tensor)
+            pred_ids, confidence = predict(app.state.model_q8, tensor)
 
             #decode labels, label_ids -> List of "H/E/C"
             labels = decode_labels_q8(pred_ids)
