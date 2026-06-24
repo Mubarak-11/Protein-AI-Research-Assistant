@@ -1,21 +1,30 @@
-# Agent Context for opencode
+# Contributing Notes
 
-## Python Environment
-- Default venv: `source /Users/mubarak/.venvs/ml311/bin/activate && python3`
-- This venv has: pandas, torch, scikit-learn, numpy, matplotlib, seaborn
-- Use this venv for ALL Python commands — system python3 (3.9) does not have the required packages
+This repository contains a protein-focused AI research assistant that combines:
 
-## Project: Protein Structure Prediction Serving
-- Serving project at: `serving/`
-- FastAPI app files in: `serving/app/`
-- Model checkpoint: `serving/artifacts/best_model_state_for_label3.pth`
-- Vocab: `serving/artifacts/vocab.json`
-- Training code in: `scripts/`
-- Datasets in: `dataset/`
+- local PyTorch Q3 and Q8 prediction tools,
+- a FastAPI serving layer,
+- Google ADK agent orchestration,
+- UniProt retrieval tools,
+- MCP-based BigQuery access.
 
-## How to Run Python
-```bash
-source /Users/mubarak/.venvs/ml311/bin/activate
-cd /path/to/project
-python3 script.py
-```
+## Project Areas
+
+- `Protein_agent/`: ADK agent, prompt, prediction tools, UniProt tools, and internal schemas
+- `serving/`: FastAPI application and inference code
+- `protein_model/`: shared model and preprocessing code
+- `protein_bq_mcp_server/`: MCP server for read-only BigQuery access
+- `scripts/`: training and analysis utilities
+
+## Development Guidelines
+
+- Keep prediction-tool outputs stable and structured.
+- Treat retrieved UniProt and BigQuery facts separately from model predictions.
+- Keep README and project-history documents aligned with the actual implemented scope.
+- Prefer small, testable changes over broad refactors.
+
+## Environment
+
+Use a Python environment that includes the packages listed in `requirements.txt`.
+
+For agent and BigQuery workflows, make sure local credentials and model artifacts are available before running the ADK setup.

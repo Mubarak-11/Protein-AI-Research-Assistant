@@ -51,12 +51,19 @@ flowchart TD
 
     A --> MCP["MCP Toolset"]
     MCP --> S["protein_bq_mcp_server"]
+<<<<<<< HEAD
     S --> BI["BigQuery"]
     S --> GT["get_table_info"]
     S --> QT["query_protein_data"]
 
     BI --> DS["Protein training dataset"]
 
+=======
+    S --> GT["get_table_info"]
+    S --> QT["query_protein_data"]
+    S --> BI["BigQuery"]
+    BI --> DS["Protein training dataset"]
+>>>>>>> a3cedc4 (Refine agent outputs and refresh public project docs)
 ```
 
 Supporting components:
