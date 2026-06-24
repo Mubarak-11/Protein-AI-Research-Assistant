@@ -34,26 +34,29 @@ Example workflow:
 
 ## Architecture
 
-```text
-User
-  |
-  v
-Google ADK Agent
-  |
-  +--> Direct Python tools
-  |     - predict_q3
-  |     - predict_q8
-  |     - batch_predict_q3
-  |     - batch_predict_q8
-  |     - search_uniprot
-  |     - get_uniprot_entry
-  |
-  +--> MCP toolset
-        - get_table_info
-        - query_protein_data
-              |
-              v
-           BigQuery
+```mermaid
+flowchart TD
+    U["User"] --> A["Google ADK Agent<br/>ProteinResearchAgent"]
+
+    A --> P["Direct Python Tools"]
+    P --> Q3["predict_q3 / predict_q8"]
+    P --> BQ["batch_predict_q3 / batch_predict_q8"]
+    P --> UNI["search_uniprot / get_uniprot_entry"]
+
+    Q3 --> M["Local PyTorch Inference"]
+    BQ --> M
+    M --> ART["Model Artifacts<br/>serving/artifacts"]
+
+    UNI --> UR["UniProt REST API"]
+
+    A --> MCP["MCP Toolset"]
+    MCP --> S["protein_bq_mcp_server"]
+    S --> BI["BigQuery"]
+    S --> GT["get_table_info"]
+    S --> QT["query_protein_data"]
+
+    BI --> DS["Protein training dataset"]
+
 ```
 
 Supporting components:
