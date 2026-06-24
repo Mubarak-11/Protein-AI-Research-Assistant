@@ -1,40 +1,72 @@
-# Protein Secondary Structure Prediction with LSTM Networks
+# Protein AI Research Assistant
 
-A deep learning project that predicts protein secondary structures from amino acid sequences using bidirectional LSTM networks, served via a production-grade FastAPI container with Q3 and Q8 prediction, batch inference, and input validation.
+Protein AI Research Assistant is a domain-specific AI agent for protein sequence exploration, secondary-structure prediction, UniProt annotation lookup, and training-dataset analysis.
 
-##  Overview
+The project started as a PyTorch LSTM-based protein secondary-structure prediction system. It now combines:
 
-Protein secondary structure prediction is a fundamental problem in bioinformatics that helps understand protein function and facilitates 3D structure determination. This project implements a neural network approach to classify each amino acid in a protein sequence into secondary structure states:
+- local Q3 and Q8 prediction tools backed by trained PyTorch checkpoints,
+- a FastAPI inference service for standalone serving,
+- a Google ADK agent for conversational workflows,
+- UniProt REST API tools for biological lookup,
+- a custom MCP server for guarded BigQuery access.
 
-**Q3 (3-class):**
-- **H** — Alpha helix
-- **E** — Beta strand (extended)
-- **C** — Coil/loop
+This is not a general autonomous scientist. It is a focused protein research assistant that can chain retrieval, prediction, and dataset analysis in one workflow.
 
-**Q8 (8-class):**
-- **H** — Alpha helix
-- **E** — Beta strand
-- **C** — Coil/loop (random coil)
-- **B** — Beta bridge
-- **G** — 3-10 helix
-- **I** — Pi helix
-- **S** — Bend
-- **T** — Turn
+## Current Scope
 
-##  Features
+The assistant can currently:
 
-- **Bidirectional LSTM Architecture**: Captures sequential dependencies in both directions
-- **PyTorch Implementation**: Efficient training with GPU acceleration (MPS support for Apple Silicon)
-- **Comprehensive Evaluation**: Multiple metrics and visualizations
-- **Modular Design**: Clean separation of preprocessing, model, and visualization components
-- **Flexible Configuration**: Support for both 3-class (Q3) and 8-class (Q8) prediction
-- **FastAPI Serving**: Production-grade REST API with Pydantic input validation
-- **Dockerized**: Ready-to-deploy container with CPU-optimized PyTorch
-- **Batch Inference**: Predict multiple sequences in a single request
+- predict Q3 secondary structure for one sequence,
+- predict Q8 secondary structure for one sequence,
+- run batch Q3 and Q8 predictions,
+- search UniProt for candidate protein entries,
+- retrieve a UniProt entry with sequence, function annotations, GO terms, and keywords,
+- compare a protein against the training dataset through BigQuery,
+- combine retrieved facts and model predictions in one natural-language response.
 
-## 📊 Performance
+Example workflow:
 
-Our model achieves the following performance on standard test sets:
+1. search UniProt for a reviewed human protein,
+2. retrieve the protein sequence and functional annotations,
+3. compare sequence length to the training dataset average,
+4. run Q3 or Q8 prediction locally,
+5. return a concise interpretation with confidence caveats.
+
+## Architecture
+
+```text
+User
+  |
+  v
+Google ADK Agent
+  |
+  +--> Direct Python tools
+  |     - predict_q3
+  |     - predict_q8
+  |     - batch_predict_q3
+  |     - batch_predict_q8
+  |     - search_uniprot
+  |     - get_uniprot_entry
+  |
+  +--> MCP toolset
+        - get_table_info
+        - query_protein_data
+              |
+              v
+           BigQuery
+```
+
+Supporting components:
+
+- `serving/`: FastAPI app and model-serving code
+- `Protein_agent/`: ADK agent, prediction tools, UniProt tools, prompt, and internal schemas
+- `protein_bq_mcp_server/`: MCP server exposing read-only BigQuery operations
+- `protein_model/`: shared training/model code
+- `scripts/`: training and analysis utilities
+
+## Model Performance
+
+Published benchmark results from the sequence-modeling work:
 
 | Dataset | Q3 Accuracy | Q8 Accuracy |
 |---------|-------------|-------------|
@@ -42,225 +74,169 @@ Our model achieves the following performance on standard test sets:
 | TS115   | 75.8%       | 61.7%       |
 | CASP12  | 74.9%       | 60.3%       |
 
-*Results may vary based on training parameters and random initialization*
+These scores reflect the trained sequence models, not end-to-end agent quality.
 
-## 🛠️ Installation
+## Repository Layout
+
+```text
+protein_struct_proj/
+├── Protein_agent/
+│   ├── agent.py
+│   ├── agent-prompt.md
+│   ├── tools.py
+│   ├── uniprot_tools.py
+│   └── schemas.py
+├── protein_bq_mcp_server/
+│   └── server.py
+├── protein_model/
+│   ├── architecture.py
+│   ├── data_utils.py
+│   └── preprocess_training.py
+├── serving/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── model.py
+│   │   ├── preprocess.py
+│   │   └── schemas.py
+│   └── artifacts/
+├── scripts/
+│   ├── train.py
+│   ├── plots.py
+│   └── queries/
+├── dataset/
+├── Dockerfile
+├── requirements.txt
+└── README.md
+```
+
+## Installation
 
 ### Prerequisites
 
-- Python 3.8+
-- PyTorch 1.9+
-- Apple Silicon Mac (for MPS acceleration) or CUDA-compatible GPU
-- Docker (for containerized serving)
+- Python 3.11 recommended
+- Docker, if you want to run the FastAPI container
+- Google Cloud credentials, if you want BigQuery MCP access
 
 ### Setup
 
-1. Clone the repository:
 ```bash
-git clone https://github.com/Mubarak-11/Protein_Secondary_Strucuture_Prediction.git
-cd protein-struct-proj
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/Mubarak-11/Protein_Secondary_Strucuture_Prediction.git protein_struct_proj
+cd protein_struct_proj
 pip install -r requirements.txt
 ```
 
-3. Download the dataset:
-```bash
-# Dataset files should be placed in the dataset/ directory
-# - training_secondary_structure_train.csv
-# - validation_secondary_structure_valid.csv
-# - test_secondary_structure_*.csv
-```
+If you are using a local virtual environment, activate it before installing dependencies.
 
-## 📁 Project Structure
+## Running the FastAPI Service
 
-```
-protein_struct_proj/
-├── protein_model/                   # Shared model package (training + serving)
-│   ├── __init__.py
-│   ├── architecture.py              # lstm_model class (bidirectional LSTM)
-│   ├── data_utils.py                # proteinDataset, pad_mask
-│   └── preprocess_training.py       # preprocess_proteins (vocab creation)
-├── scripts/                         # Training code
-│   ├── __init__.py
-│   ├── train.py                     # Train Q3/Q8 models with early stopping
-│   ├── plots.py                     # Evaluation visualizations
-│   └── queries/                     # BigQuery analysis SQL
-│       ├── amino_acid_freq.sql
-│       ├── batch_input_view.sql
-│       ├── longest_sequence.sql
-│       └── q8_class_balance.sql
-├── serving/                         # FastAPI serving application
-│   ├── __init__.py
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py                  # FastAPI app with 5 endpoints
-│   │   ├── model.py                 # Q3/Q8 model loaders + inference
-│   │   ├── preprocess.py            # Inference preprocess (encode/decode)
-│   │   └── schemas.py               # Pydantic request/response schemas
-│   └── artifacts/
-│       ├── vocab.json               # Amino acid + label vocabularies
-│       ├── best_model_state_for_label3.pth  # Q3 weights
-│       └── best_model_state_for_label8.pth  # Q8 weights
-├── dataset/                         # Training/validation/test CSVs
-├── Dockerfile                       # Production container
-├── requirements.txt                 # Python dependencies
-└── README.md                        # This file
-```
-
-## 🎯 Quick Start
-
-### Training a Model
-
-```bash
-python -m scripts.train
-```
-
-This will:
-1. Load and preprocess the training data
-2. Initialize a bidirectional LSTM model
-3. Train for 20 epochs with early stopping
-4. Save the best model checkpoint
-5. Generate training/validation loss plots
-
-### Serving (Docker)
-
-```bash
-docker build -t protein-serving .
-docker run -d -p 8000:8000 protein-serving
-```
-
-### Serving (Local)
+Local development:
 
 ```bash
 uvicorn serving.app.main:app --reload
 ```
 
-##  API Endpoints
+Docker:
 
-### Health Check
 ```bash
-curl http://localhost:8000/health
-# {"status":"healthy","q3_loaded":true,"q8_loaded":true}
+docker build -t protein-serving .
+docker run -p 8000:8000 protein-serving
 ```
 
-### Q3 Prediction (3-class: H/E/C)
+Available endpoints:
+
+- `GET /health`
+- `POST /predict/q3`
+- `POST /predict/q8`
+- `POST /predict/batch_q3`
+- `POST /predict/batch_q8`
+
+Example:
+
 ```bash
 curl -X POST http://localhost:8000/predict/q3 \
   -H "Content-Type: application/json" \
   -d '{"sequence": "MVLSPADKTNVKAAW"}'
 ```
 
-### Q8 Prediction (8-class: B/C/E/G/H/I/S/T)
-```bash
-curl -X POST http://localhost:8000/predict/q8 \
-  -H "Content-Type: application/json" \
-  -d '{"sequence": "MVLSPADKTNVKAAW"}'
-```
+## Running the ADK Agent
 
-### Batch Prediction
-```bash
-curl -X POST http://localhost:8000/predict/batch_q3 \
-  -H "Content-Type: application/json" \
-  -d '{"sequences": ["MVLSPADKTNVKAAW", "ACDEFGHIKLMNP"]}'
-```
+The agent uses:
 
-### Input validation
-All prediction endpoints enforce `min_length=1`, `max_length=512`, and reject invalid amino acids before they reach the model.
+- local PyTorch prediction tools,
+- UniProt REST lookups,
+- an MCP server for BigQuery access.
 
-## 📚 Detailed Usage
+Before running the agent, make sure the required environment and credentials are available for:
 
-### Model Architecture
+- Google ADK,
+- BigQuery access,
+- local model artifacts in `serving/artifacts/`.
 
-The core model is a bidirectional LSTM with the following components:
-- **Embedding Layer**: Converts amino acid indices to dense vectors
-- **Bidirectional LSTM**: Processes sequences in both directions
-- **Layer Normalization**: Stabilizes training
-- **Dropout**: Prevents overfitting
-- **Linear Layer**: Maps to output classes
-
-### Training Configuration
-
-Key hyperparameters (configurable in `scripts/train.py`):
-- `hidden`: LSTM hidden dimension (default: 20)
-- `embed_dim`: Embedding dimension (default: 20)
-- `bidir`: Use bidirectional LSTM (default: True)
-- `n_epochs`: Maximum training epochs (default: 20)
-- `batch_size`: Training batch size (default: 16)
-- `lr`: Learning rate (default: 0.01)
-
-### Evaluation Metrics
-
-The model is evaluated using:
-- **Q3 Accuracy**: 3-class secondary structure accuracy
-- **Q8 Accuracy**: 8-class secondary structure accuracy
-- **Per-class Precision/Recall/F1**: Detailed performance metrics
-- **Confusion Matrix**: Error analysis
-
-### Generating Visualizations
+Typical local flow:
 
 ```bash
-python -m scripts.plots best_model_state_for_label3.pth dataset/test_secondary_structure_cb513.csv
+cd protein_struct_proj
+# activate your virtual environment first
+# then start the ADK development workflow using Protein_agent/agent.py
 ```
 
-## 🔬 Advanced Features
+The exact launch command may vary with your local ADK setup, but the root agent is defined in `Protein_agent/agent.py`.
 
-### Custom Dataset Support
+The agent is currently intended for local development and demo workflows rather than public production deployment.
 
-To use your own protein data:
-1. Format your CSV with columns: `seq` (amino acid sequence), `sst3` and `sst8` (secondary structure)
-2. Place in the `dataset/` directory
-3. Update file paths in `scripts/train.py`
+## UniProt and BigQuery Workflows
 
-### GPU Acceleration
+Recent improvements include:
 
-The code automatically detects and uses available hardware:
-- **MPS**: Apple Metal Performance Shaders (Apple Silicon)
-- **CUDA**: NVIDIA GPUs
-- **CPU**: Fallback for systems without GPU acceleration
+- richer UniProt entry retrieval with function annotations, GO terms, and keywords,
+- richer UniProt search results with reviewed-entry metadata,
+- grouped prediction regions for Q3 and Q8 outputs,
+- prompt updates that better separate retrieved facts from model predictions.
 
-## 📈 Model Performance Analysis
+This means the agent can now answer prompts such as:
 
-### Visualization Tools
+- “Find the reviewed UniProt entry for human myoglobin and summarize its function.”
+- “Compare this protein’s length to the average length in the training dataset.”
+- “Predict Q3 for the UniProt sequence and summarize the major structural regions.”
 
-The `scripts/plots.py` module provides comprehensive visualization:
-1. **Prediction Comparison**: Side-by-side true vs. predicted structures
-2. **Confusion Matrix**: Detailed error analysis
-3. **Length Performance**: Accuracy vs. sequence length
-4. **Class Metrics**: Per-class precision, recall, F1-score
+## Current Progress
 
-### Error Analysis
+Implemented and working locally:
 
-Common failure modes and solutions:
-- **Short sequences**: May lack sufficient context
-- **Rare amino acids**: Limited training examples
-- **Boundary regions**: Transitions between secondary structures
+- trained Q3 and Q8 PyTorch checkpoints,
+- FastAPI serving path,
+- ADK agent with local prediction tools,
+- MCP BigQuery integration,
+- UniProt search and entry lookup,
+- structured prediction regions for cleaner agent summaries,
+- internal Pydantic schemas that reflect tool output contracts.
 
-## 🤝 Contributing
+Not yet done:
 
-Contributions are welcome. To contribute:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
+- public deployment of the ADK agent,
+- tighter canonical-entry ranking for ambiguous UniProt searches,
+- richer biological fields such as domains or subcellular location,
+- evaluation harnesses for systematic agent benchmarking,
+- polished public repo/demo assets.
 
-## 📄 License
+## Future Iterations
+
+Planned next steps include:
+
+- improve UniProt candidate selection and ranking behavior,
+- expand biological annotations and protein metadata retrieval,
+- add better formatting or smoothing for structural region summaries,
+- improve evaluation and observability for agent responses,
+- add semantic protein search and retrieval workflows,
+- explore mutation analysis and structure-impact experiments,
+- prepare a cleaner public demo and repository presentation.
+
+## Caveats
+
+- Prediction confidence is a model confidence score, not a calibrated biological probability.
+- The sequence models can disagree with known structural biology, especially when tertiary context matters.
+- BigQuery access is guarded for development use, but the current MCP guardrails are not a full public security boundary.
+
+## License
 
 This project is licensed under the MIT License.
-
-## 🙏 Acknowledgments
-
-- **Dataset**: CB513, TS115, and CASP12 benchmark datasets
-- **PyTorch**: Deep learning framework
-- **Scikit-learn**: Machine learning evaluation metrics
-
-## 📚 References
-
-1. Jones, D. T. (1999). Protein secondary structure prediction based on position-specific scoring matrices. *Journal of Molecular Biology*, 292(2), 195-202.
-2. Hou, J., Adhikari, B., & Cheng, J. (2018). DeepSF: deep convolutional neural network for mapping protein sequences to folds. *Bioinformatics*, 34(8), 1295-1303.
-3. Heffernan, R., Yang, Y., Paliwal, K. K., & Zhou, Y. (2017). Capturing non-local interactions in protein sequences using deep learning. *Scientific Reports*, 7(1), 1-11.
-
----
-
-⭐ If you find this project useful, please consider giving it a star!

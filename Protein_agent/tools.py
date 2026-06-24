@@ -21,6 +21,40 @@ logger = logging.getLogger(__name__)
 _q3_model: nn.Module | None = None
 _q8_model: nn.Module | None = None
 
+
+#helper function to return better outputs
+def _build_regions(prediction: str) -> list[dict]:
+    """ Group contiguous secondary-strcuture labels into regions"""
+
+    if not prediction:
+        return []
+    
+    regions = []
+    start = 1
+    current_structure = prediction[0]
+
+    for index, structure in enumerate(prediction[1:], start = 2):
+        if structure == current_structure:
+            continue
+
+        regions.append({
+            "start": start,
+            "end": index - 1,
+            "structure": current_structure
+        })
+
+        start = index
+        current_structure = structure
+    
+    regions.append({
+        "start": start,
+        "end": len(prediction),
+        "structure": current_structure
+    })
+
+    return regions
+
+
 def _get_q3_model() -> nn.Module:
     global _q3_model
     if _q3_model is None:
@@ -59,10 +93,14 @@ def predict_q3(seq:str) -> dict:
         #join list into a single prediction string
         prediction_str = "".join(labels)
 
+        #to show the regions
+        regions = _build_regions(prediction_str)
+
         #return
         return {"sequence": seq, 
                 "prediction": prediction_str, 
                 "confidence": confidence, 
+                "regions": regions
                 }
     
     except Exception as e:
@@ -86,10 +124,14 @@ def predict_q8(seq: str) -> dict:
         #join list into a single prediction string
         prediction_str = "".join(labels)
 
+        #to show the regions
+        regions = _build_regions(prediction_str)
+
         #return
         return {"sequence": seq, 
                 "prediction": prediction_str, 
                 "confidence": confidence, 
+                "regions": regions
                 }
     
     except Exception as e:
@@ -112,10 +154,14 @@ def batch_predict_q3(seqs: list[str]) -> dict:
             #decode labels, label_ids -> List of "H/E/C"
             labels = decode_labels_q3(pred_ids)
 
+            prediction_str = "".join(labels)
+            regions = _build_regions(prediction_str)
+            
             results.append({
                 "sequence": seq,
-                "prediction": "".join(labels),
-                "confidence": confidence
+                "prediction": prediction_str,
+                "confidence": confidence,
+                "regions": regions
             })
 
         #return
@@ -142,10 +188,14 @@ def batch_predict_q8(seqs: list[str]) -> dict:
             #decode labels, label_ids -> List of "H/E/C"
             labels = decode_labels_q8(pred_ids)
 
+            prediction_str = "".join(labels)
+            regions = _build_regions(prediction_str)
+            
             results.append({
                 "sequence": seq,
-                "prediction": "".join(labels),
-                "confidence": confidence
+                "prediction": prediction_str,
+                "confidence": confidence,
+                "regions": regions
             })
 
         #return
