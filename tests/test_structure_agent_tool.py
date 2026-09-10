@@ -58,6 +58,70 @@ class StructureAgentToolTests(unittest.TestCase):
         self.assertEqual("1GFL", result["selected_pdb_id"])
         fetch_uniprot_structure_entry.assert_not_called()
 
+    @patch("Protein_agent.structure_tools.fetch_uniprot_structure_entry")
+    def test_structure_tool_refetches_when_passed_entry_has_no_pdb_crossrefs(
+        self,
+        fetch_uniprot_structure_entry,
+    ) -> None:
+        """Regression: the compact get_uniprot_entry payload carries no PDB
+        cross-references, so passing it back must not block structure
+        selection. The tool has to fetch the raw UniProt entry instead."""
+
+        fetch_uniprot_structure_entry.return_value = {
+            "uniProtKBCrossReferences": [
+                {
+                    "database": "PDB",
+                    "id": "1GFL",
+                    "properties": [
+                        {"key": "Method", "value": "X-ray"},
+                        {"key": "Resolution", "value": "1.90 A"},
+                        {"key": "Chains", "value": "A=1-238"},
+                    ],
+                }
+            ]
+        }
+
+        normalized_entry = {
+            "ok": True,
+            "accession": "P42212",
+            "name": "GFP_AEQVI",
+            "protein_name": "Green Fluorescent Protein",
+            "gene": "GFP",
+            "organism": "Aequorea victoria",
+            "length": 238,
+            "sequence": "MSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTTGKLPVPWPTLVTTFSYGVQCFSRYPDHMKQHDFFKSAMPEGYVQERTIFFKDDGNYKTRAEVKFEGDTLVNRIELKGIDFKEDGNILGHKLEYNYNSHNVYIMADKQKNGIKVNFKIRHNIEDGSVQLADHYQQNTPIGDGPVLLPDNHYLSTQSALSKDPNEKRDHMVLLEFVTAAGITHGMDELYK",
+            "function": ["Energy-transfer acceptor."],
+            "go_terms": [],
+            "keywords": [],
+        }
+
+        result = create_structure_view_link(
+            accession="P42212",
+            protein_name="Green Fluorescent Protein",
+            uniprot_entry=normalized_entry,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual("1GFL", result["selected_pdb_id"])
+        fetch_uniprot_structure_entry.assert_called_once_with("P42212")
+
+    @patch("Protein_agent.structure_tools.fetch_uniprot_structure_entry")
+    def test_structure_tool_uses_supplied_entry_when_it_has_pdb_crossrefs(
+        self,
+        fetch_uniprot_structure_entry,
+    ) -> None:
+        """A raw or normalized entry with real cross-references is used as-is."""
+
+        result = create_structure_view_link(
+            accession="P42212",
+            protein_name="Green Fluorescent Protein",
+            uniprot_entry={"pdb_crossrefs": [{"pdb_id": "1GFL", "method": "X-ray"}]},
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual("1GFL", result["selected_pdb_id"])
+        fetch_uniprot_structure_entry.assert_not_called()
+
     @patch("protein_structure_view.uniprot.requests.get")
     def test_fetch_uniprot_structure_entry_keeps_raw_crossrefs(self, requests_get) -> None:
         response = Mock()

@@ -7,6 +7,24 @@ from protein_structure_view import FocusResidue, create_structure_view
 from protein_structure_view.uniprot import fetch_uniprot_structure_entry
 
 
+def _has_pdb_crossrefs(entry: dict[str, Any] | None) -> bool:
+    """Return True when an entry carries enough data to resolve a PDB candidate.
+
+    Agent-normalized entries (e.g. the output of get_uniprot_entry) do not
+    include PDB cross-references, so they must not suppress the raw UniProt
+    fetch that structure selection depends on.
+    """
+
+    if not entry:
+        return False
+    if entry.get("pdb_crossrefs"):
+        return True
+    return any(
+        isinstance(ref, dict) and ref.get("database") == "PDB"
+        for ref in entry.get("uniProtKBCrossReferences", [])
+    )
+
+
 def create_structure_view_link(
         accession: str,
         protein_name: str = "",
@@ -27,8 +45,11 @@ def create_structure_view_link(
             UniProt fetch is needed. If the user asks to use a specific PDB
             ID, pass that exact ID here instead of relying on automatic
             structure selection.
-        uniprot_entry: Optional raw UniProt JSON entry; fetched automatically
-            when omitted.
+        uniprot_entry: Optional raw UniProt JSON entry carrying
+            `uniProtKBCrossReferences`, or a normalized entry carrying
+            `pdb_crossrefs`. Entries that carry neither (for example the
+            compact output of get_uniprot_entry) are ignored and the raw
+            UniProt entry is fetched instead.
         focus_residues: Residues to highlight in the viewer. Pass ONE dict
             per residue anchor: {"chain": "A", "residue_number": 21,
             "label": "EF-hand 1"}. residue_number MUST be a single integer
@@ -43,7 +64,7 @@ def create_structure_view_link(
 
     try:
         structure_entry = uniprot_entry
-        if structure_entry is None and pdb_id is None:
+        if pdb_id is None and not _has_pdb_crossrefs(structure_entry):
             structure_entry = fetch_uniprot_structure_entry(accession)
 
         residues = [
