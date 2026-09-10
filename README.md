@@ -5,6 +5,14 @@ All praise and thanks are due to Allah.
  
 # Protein AI Research Assistant
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)
+![Tests](https://img.shields.io/badge/tests-35%20passing-brightgreen.svg)
+![Agent: Google ADK](https://img.shields.io/badge/agent-Google%20ADK-4285F4.svg)
+![Vector search: pgvector](https://img.shields.io/badge/vector-pgvector-336791.svg)
+
+**Retrieval-grounded protein research agent** — curated UniProt corpus, hybrid vector + lexical retrieval, verified annotations, local PyTorch Q3/Q8 prediction, and a verified 3D structure handoff.
+
 Protein AI Research Assistant is a domain-specific research agent for protein sequence exploration, UniProt annotation lookup, local protein retrieval, training-dataset analysis, secondary-structure prediction, and 3D structure-view handoff.
 
 The project started as a PyTorch LSTM system for Q3/Q8 secondary-structure prediction. It is now a retrieval-grounded agent workflow that can:
@@ -38,7 +46,7 @@ This is not a general autonomous scientist. It is a focused protein research ass
 - [Repository Layout](#repository-layout)
 - [Limitations](#limitations)
 - [Why Not Scale To Thousands Yet?](#why-not-scale-to-thousands-yet)
-- [Structure Studio Handoff](#structure-studio-handoff)
+- [Grand Finale: Agent → Protein Structure Studio](#grand-finale-agent--protein-structure-studio)
 - [Post-V1 Direction](#post-v1-direction)
 - [License](#license)
 
@@ -470,7 +478,12 @@ Current test coverage includes:
 - retrieval top-k clamping,
 - runtime hardening defaults,
 - UniProt graceful failure behavior,
-- Structure Studio payload encoding and agent tool behavior.
+- Structure Studio payload encoding, PDB selection, and agent tool behavior,
+- regression coverage for the compact-UniProt-entry structure handoff.
+
+Current status: **35 tests, all passing**. Run them with the project interpreter, for
+example `/Users/mubarak/.venvs/ml311/bin/python -m unittest discover tests` during local
+development, or plain `python -m unittest discover tests` inside an activated venv.
 
 ## Repository Layout
 
@@ -489,6 +502,9 @@ protein_struct_proj/
 │   └── retrieval_queries.jsonl
 ├── dataset/
 │   └── uniprot_seed_accessions.txt
+├── docs/
+│   ├── agent_structure_handoff.gif
+│   └── structure_studio_handoff.md
 ├── protein_bq_mcp_server/
 │   └── server.py
 ├── protein_retrieval/
@@ -544,46 +560,99 @@ The value of this stage is reliability:
 
 Scaling to thousands is a future data-engineering task, not necessary for proving the V1 research-agent loop.
 
-## Structure Studio Handoff
+## Grand Finale: Agent → Protein Structure Studio
 
-The final capstone connects the research agent to a separate visualization repo:
-Protein Structure Studio.
+The capstone connects the research agent to a separate visualization repo:
+[**Protein Structure Studio**](https://github.com/Mubarak-11/protein-structure-studio).
 
 The separation is intentional:
 
 - the protein agent owns retrieval, UniProt verification, Q3/Q8 prediction, tool orchestration, evidence, and uncertainty,
 - Protein Structure Studio owns HTML, WebGL, NGL Viewer rendering, camera controls, molecular surfaces, ligands, and interaction.
 
-For the local demo, run the Structure Studio server separately:
+The agent never renders 3D itself. It resolves an experimental structure, builds a
+URL-safe base64 payload, and hands the user into the viewer.
 
-```bash
-python3 -m http.server 8765 --directory outputs
-```
+![Protein agent end-to-end: the agent verifies P68871, predicts Q3, emits a Structure Studio link, and the click-through renders the hemoglobin 2HHB structure](docs/agent_structure_handoff.gif)
 
-The agent emits a local viewer URL such as:
+*End-to-end finale — the agent verifies P68871, predicts Q3, emits the viewer link, and
+the click-through opens the real 2HHB hemoglobin structure.*
+
+### The handoff contract
 
 ```text
 http://127.0.0.1:8765/protein-sculpture-studio.html?payload=<base64url-json>
 ```
 
-The encoded payload contains:
-
 ```json
 {
-  "protein_name": "...",
-  "uniprot_id": "...",
-  "pdb_id": "...",
-  "chains": ["A"],
+  "protein_name": "Hemoglobin subunit beta",
+  "uniprot_id": "P68871",
+  "pdb_id": "2HHB",
+  "chains": ["A", "B", "C", "D"],
   "focus_residues": [],
   "view_mode": "Function",
-  "summary": "..."
+  "summary": "Human hemoglobin subunit beta, involved in oxygen transport.",
+  "source": {
+    "database": "RCSB PDB",
+    "url": "https://www.rcsb.org/structure/2HHB",
+    "experimental_method": "X-ray",
+    "resolution": 1.74
+  }
 }
 ```
 
-The finale demo uses human hemoglobin beta: the agent verifies UniProt accession
-P68871, runs local Q3 prediction, explains oxygen-transport structure/function
-context, selects a PDB structure, and hands the user into the interactive 3D
-viewer.
+Override the viewer base URL with `PROTEIN_STRUCTURE_STUDIO_URL`.
+
+### Running the finale locally
+
+Terminal 1 — serve the viewer:
+
+```bash
+python3 -m http.server 8765 --directory outputs
+```
+
+Terminal 2 — ask the agent, for example:
+
+```text
+Use UniProt accession P68871 (human hemoglobin subunit beta). Verify the entry,
+predict its Q3 secondary structure, and hand me the interactive 3D structure view link.
+```
+
+### Verified end-to-end
+
+This flow was executed against the **real ADK agent** — not a stub — with the viewer
+served on port 8765:
+
+| Step | Tool | Observed result |
+|------|------|-----------------|
+| 1 | `get_uniprot_entry` | `P68871` → HBB_HUMAN, *Homo sapiens*, 147 residues, reviewed |
+| 2 | `predict_q3` | single-sequence prediction, model confidence 55.3% |
+| 3 | `create_structure_view_link` | selected PDB **2HHB** — X-ray, 1.74 A, chains A, B, C, D |
+| 4 | viewer URL | HTTP 200; payload decodes back to the exact agent payload |
+| 5 | NGL render | 2HHB coordinates rendered in the WebGL canvas |
+
+The agent returns one consolidated answer that keeps verified facts, model
+interpretation, uncertainty, and missing information clearly separated.
+
+### Two integration bugs this verification caught
+
+Running the real workflow instead of trusting the unit tests surfaced two defects
+that had each silently broken the capstone:
+
+1. **The structure tool rejected its own agent's data.** `get_uniprot_entry` returns a
+   compact normalized entry, while the tool only fetched raw UniProt JSON when no
+   entry was supplied at all. Passing the compact entry back therefore failed with
+   *"No PDB structure candidate was available for this protein."* The tool now falls
+   back to a raw UniProt fetch unless the supplied entry actually carries PDB
+   cross-references. Regression tests cover both directions.
+2. **The viewer never implemented the payload contract.** It was documented only as a
+   future integration target, so the viewer always rendered its own default preset and
+   silently ignored the protein the agent had selected. The viewer now decodes
+   `?payload=`, registers it as a viewer entry, and loads that structure.
+
+Both fixes are on `main`. The handoff is now genuinely end to end: the agent's protein
+choice determines what renders, and the no-payload viewer path is unchanged.
 
 ## Post-V1 Direction
 
