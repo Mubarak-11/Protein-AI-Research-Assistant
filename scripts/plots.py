@@ -20,6 +20,7 @@ import seaborn as sns
 import torch
 from torch.utils.data import DataLoader
 import logging
+from pathlib import Path
 from protein_model.preprocess_training import preprocess_proteins
 from protein_model.data_utils import proteinDataset, pad_mask
 from protein_model.architecture import lstm_model
@@ -371,7 +372,8 @@ if __name__ == "__main__":
     test_data_path = sys.argv[2]
     
     # Load the preprocessing data to get vocabularies
-    train_df = "/Users/mubarak/Projects/BioML/protein_struct_proj/dataset/training_secondary_structure_train.csv"
+    project_root = Path(__file__).resolve().parents[1]
+    train_df = project_root / "dataset" / "training_secondary_structure_train.csv"
     _, prime2idx, lab3, _ = preprocess_proteins(train_df)
     
     # Run evaluation with visualizations
