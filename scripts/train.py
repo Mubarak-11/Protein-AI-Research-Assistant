@@ -263,9 +263,10 @@ def main():
     secondary structure prediction.
     """
     # Dataset file paths
-    train_df = r"/Users/mubarak/Projects/BioML/protein_struct_proj/dataset/training_secondary_structure_train.csv"
-    val_df = r"/Users/mubarak/Projects/BioML/protein_struct_proj/dataset/validation_secondary_structure_valid.csv"
-    test_df = r"/Users/mubarak/Projects/BioML/protein_struct_proj/dataset/test_secondary_structure_casp12.csv"
+    project_root = Path(__file__).resolve().parents[1]
+    train_df = project_root / "dataset" / "training_secondary_structure_train.csv"
+    val_df = project_root / "dataset" / "validation_secondary_structure_valid.csv"
+    test_df = project_root / "dataset" / "test_secondary_structure_casp12.csv"
 
     # Preprocess training data to create vocabularies
     t_data, t_prime2idx, t_lab3, t_lab8 = preprocess_proteins(train_df)

@@ -82,7 +82,3 @@ def preprocess_proteins(df):
    
     return data, prim2idx, lab3, lab8
 
-#test the mapping
-#df = r"/Users/mubarak/Projects/BioML/protein_struct_proj/dataset/training_secondary_structure_train.csv"
-#preprocess_proteins(df)
-
