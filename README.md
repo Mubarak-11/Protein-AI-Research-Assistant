@@ -37,6 +37,7 @@ This is not a general autonomous scientist. It is a focused protein research ass
 - [Why The 100-Query Benchmark Exists](#why-the-100-query-benchmark-exists)
 - [Retrieval Evaluation](#retrieval-evaluation)
 - [Reliability Contract](#reliability-contract)
+- [Agent Evaluation Harness](#agent-evaluation-harness)
 - [Demo Reliability Hardening](#demo-reliability-hardening)
 - [Secondary-Structure Model Performance](#secondary-structure-model-performance)
 - [Setup](#setup)
@@ -274,6 +275,45 @@ Example graceful failure:
 
 That lets the agent satisfy the contract: report the failed lookup, avoid fabrication, and list missing protein identity, organism, sequence, function, GO terms, and keywords.
 
+## Agent Evaluation Harness
+
+Unit tests mock the network, so they cannot catch an agent that calls the right tools in the
+wrong order, hands a tool data it cannot use, or returns an empty answer. The evaluation
+harness runs **real** flows against the real agent and asserts behaviour:
+
+```bash
+python -m scripts.reliability.run_agent_flow --list    # the evaluation dataset
+python -m scripts.reliability.run_agent_flow           # run the capstone flow
+```
+
+Each flow is a **golden trace**: an expected tool sequence, the structure handoff it must
+produce, and the answer sections it must keep — checked with deterministic assertions. There
+is no judge model and no external evaluation platform. The trace either matches or it does not,
+so a failure is always a specific, readable fact.
+
+```text
+GOLDEN TRACE -- 3 tool call(s)
+   1. get_uniprot_entry(accession)                                               [ok]
+   2. predict_q3(seq)                                                            [-]
+   3. create_structure_view_link(accession, protein_name, summary, uniprot_entry) [ok]
+
+[PASS] tool_sequence             get_uniprot_entry -> predict_q3 -> create_structure_view_link
+[PASS] tool_responses            3 tool call(s), none reported ok=False
+[PASS] single_structure_link     exactly one create_structure_view_link call
+[PASS] structure_payload         P68871 -> PDB 2HHB, chains=['A', 'B', 'C', 'D']
+[PASS] answer_contract_sections  all 4 required section(s) present
+VERDICT: PASS
+```
+
+A flow that cannot run reports `BLOCKED`, never a pass. Exit codes are `0` pass, `1` check
+failure, `2` blocked, so the harness works directly as a regression gate.
+
+This flow is a standing regression guard: in the trace above the agent passes `uniprot_entry`
+back into the structure tool, which is exactly the input shape that used to fail silently.
+
+Design notes, the full checks table, and how to add flows:
+[`docs/agent_eval_harness.md`](docs/agent_eval_harness.md).
+
 ## Demo Reliability Hardening
 
 The demo runtime includes several reliability hardening steps:
@@ -459,10 +499,16 @@ Current test coverage includes:
 - UniProt graceful failure behavior,
 - Structure Studio payload encoding, PDB selection, and agent tool behavior,
 - regression coverage for the compact-UniProt-entry structure handoff.
+- the agent evaluation harness: golden trace matching, structure payload validation, and
+  answer contract checks, all replayed offline from synthetic events.
 
-Current status: **35 tests, all passing**. Run them with the project interpreter, for
+Current status: **56 tests, all passing**. Run them with the project interpreter, for
 example `/Users/mubarak/.venvs/ml311/bin/python -m unittest discover tests` during local
 development, or plain `python -m unittest discover tests` inside an activated venv.
+
+The suite is offline and fast. The live agent-flow harness is separate on purpose — it needs
+credentials, network and local services, so it lives in `scripts/reliability/` and not in
+`tests/`.
 
 ## Repository Layout
 
@@ -472,6 +518,7 @@ protein_struct_proj/
 │   ├── agent.py
 │   ├── agent-prompt.md
 │   ├── config.py
+│   ├── eval.py
 │   ├── reliability.py
 │   ├── structure_tools.py
 │   ├── tools.py
@@ -482,6 +529,7 @@ protein_struct_proj/
 ├── dataset/
 │   └── uniprot_seed_accessions.txt
 ├── docs/
+│   ├── agent_eval_harness.md
 │   ├── agent_structure_handoff.gif
 │   └── structure_studio_handoff.md
 ├── protein_bq_mcp_server/
