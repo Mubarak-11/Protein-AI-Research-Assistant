@@ -28,6 +28,7 @@ This is not a general autonomous scientist. It is a focused protein research ass
 
 ## Table of Contents
 
+- [Demo](#demo)
 - [Scientific Question](#scientific-question)
 - [What The Agent Can Do](#what-the-agent-can-do)
 - [Architecture](#architecture)
@@ -49,6 +50,12 @@ This is not a general autonomous scientist. It is a focused protein research ass
 - [Grand Finale: Agent → Protein Structure Studio](#grand-finale-agent--protein-structure-studio)
 - [Post-V1 Direction](#post-v1-direction)
 - [License](#license)
+
+## Demo
+
+![Protein agent end-to-end: the agent verifies P68871, predicts Q3, emits a Structure Studio link, and the click-through renders the hemoglobin 2HHB structure](docs/agent_structure_handoff.gif)
+
+*End-to-end: the agent verifies UniProt P68871, predicts Q3 secondary structure, resolves PDB 2HHB, emits a Protein Structure Studio link, and the click-through renders the real hemoglobin structure.*
 
 ## Scientific Question
 
@@ -87,7 +94,8 @@ Example workflow:
 
 ## Architecture
 
-![Protein AI Research Assistant system architecture](docs/architecture.svg)
+<a href="docs/architecture.svg">
+<img src="docs/architecture.svg" alt="Protein AI Research Assistant system architecture" width="100%"></a>
 
 *The agent wires direct Python tools plus two stdio MCP toolsets, grounds answers in a 500-protein
 pgvector corpus and BigQuery, and hands the user a verified 3D structure in Protein Structure Studio.*
@@ -544,10 +552,7 @@ The separation is intentional:
 The agent never renders 3D itself. It resolves an experimental structure, builds a
 URL-safe base64 payload, and hands the user into the viewer.
 
-![Protein agent end-to-end: the agent verifies P68871, predicts Q3, emits a Structure Studio link, and the click-through renders the hemoglobin 2HHB structure](docs/agent_structure_handoff.gif)
-
-*End-to-end finale — the agent verifies P68871, predicts Q3, emits the viewer link, and
-the click-through opens the real 2HHB hemoglobin structure.*
+*See the end-to-end demo at the top of this README.*
 
 ### The handoff contract
 
