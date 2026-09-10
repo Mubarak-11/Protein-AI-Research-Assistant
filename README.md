@@ -87,39 +87,10 @@ Example workflow:
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    U["User"] --> A["Google ADK Agent<br/>ProteinResearchAgent"]
+![Protein AI Research Assistant system architecture](docs/architecture.svg)
 
-    A --> PT["Direct Python Tools"]
-    PT --> Q3["predict_q3 / predict_q8"]
-    PT --> BQ3["batch_predict_q3 / batch_predict_q8"]
-    PT --> UNI["search_uniprot / get_uniprot_entry"]
-    PT --> VIEW["create_structure_view_link"]
-
-    Q3 --> INF["Local PyTorch Inference"]
-    BQ3 --> INF
-    INF --> ART["Model Artifacts<br/>serving/artifacts"]
-
-    UNI --> UR["UniProt REST API"]
-    VIEW --> PDB["RCSB PDB metadata<br/>via UniProt cross-references"]
-    VIEW --> STUDIO["Protein Structure Studio<br/>local HTML + WebGL/NGL"]
-
-    A --> RMCP["Retrieval MCP Toolset"]
-    RMCP --> RS["protein_retrieval_mcp_server"]
-    RS --> SEM["semantic_search_proteins"]
-    RS --> KEY["keyword_search_proteins"]
-    RS --> HYB["hybrid_search_proteins"]
-    SEM --> PG["PostgreSQL + pgvector<br/>500 reviewed UniProt proteins"]
-    KEY --> PG
-    HYB --> PG
-
-    A --> BMCP["BigQuery MCP Toolset"]
-    BMCP --> BQS["protein_bq_mcp_server"]
-    BQS --> GT["get_table_info"]
-    BQS --> QT["query_protein_data"]
-    QT --> BQ["BigQuery training dataset"]
-```
+*The agent wires direct Python tools plus two stdio MCP toolsets, grounds answers in a 500-protein
+pgvector corpus and BigQuery, and hands the user a verified 3D structure in Protein Structure Studio.*
 
 Core packages:
 
